@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kasir Nasi Goreng</title>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    body {
+      font-family: monospace;
+      background-color: #f2f2f2;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 400px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border: 1px solid #ddd;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
+    select, input[type=number], input[type=text] {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      margin-bottom: 10px;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    button {
+      padding: 8px 12px;
+      background-color: black;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 13px;
+      margin: 5px 2px;
+    }
+
+    button:hover {
+      background-color: #333;
+    }
+
+    #struk {
+      background: white;
+      padding: 20px;
+      font-size: 12px;
+      color: #000;
+      font-family: monospace;
+      border: 1px dashed black;
+      margin-top: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #struk::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-image: url('background.png');
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+      opacity: 0.05;
+      z-index: 0;
+    }
+
+    #struk * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .center {
+      text-align: center;
+    }
+
+    .item {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px dashed black;
+      margin: 6px 0;
+    }
+
+    .qr-code {
+      width: 50px;
+      display: block;
+      margin: 10px auto 0;
+      opacity: 0.9;
+    }
+
+    #pesanan {
+      font-size: 12px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h3 style="text-align:center; font-family: monospace;">KASIR NASI GORENG</h3>
+
+    <label>Menu:</label>
+    <select id="menu">
+      <option value="Nasi Goreng Biasa|15000">Nasi Goreng Biasa - Rp. 15.000</option>
+      <option value="Nasi Goreng Spesial|20000">Nasi Goreng Spesial - Rp. 20.000</option>
+      <option value="Nasi Goreng Double Telor|18000">Nasi Goreng Double Telor - Rp. 18.000</option>
+      <option value="Nasi Goreng Ati Ampela|18000">Nasi Goreng Ati Ampela - Rp. 18.000</option>
+      <option value="Nasi Goreng Mawut|18000">Nasi Goreng Mawut - Rp. 18.000</option>
+      <option value="Mie Goreng/Rebus|15000">Mie Goreng/Rebus - Rp. 15.000</option>
+      <option value="Kwetiaw Goreng/Rebus|15000">Kwetiaw Goreng/Rebus - Rp. 15.000</option>
+      <option value="Bihun Goreng/Rebus|15000">Bihun Goreng/Rebus - Rp. 15.000</option>
+    </select>
+
+    <input type="number" id="qty" placeholder="Jumlah" min="" value="" />
+    <button onclick="tambah()">Tambah</button>
+
+    <div id="pesanan"></div>
+
+    <label>Bayar (Cash):</label>
+    <input type="text" id="cash" placeholder="Isi pembayaran disini" inputmode="numeric" oninput="formatCash(this)" />
+
+    <div id="struk">
+      <div class="center">
+        NASI GORENG<br />
+        RYAN & REVAN<br />
+        Jl. Cibaduyut Lama No.07, Bandung
+      </div>
+      <hr />
+      <div class="item"><span>Tanggal:</span> <span id="datetime"></span></div>
+      <div class="item"><span>No. Pesanan:</span> <span id="orderNum">1</span></div>
+      <hr />
+      <div id="items"></div>
+      <hr />
+      <div class="item"><span>Total QTY:</span> <span id="tqty">0</span></div>
+      <div class="item"><span>Total:</span> <span id="ttotal">Rp. 0</span></div>
+      <div class="item"><span>Kembali:</span> <span id="kembali">Rp. 0</span></div>
+      <hr />
+      <div class="center">*** TERIMA KASIH ***</div>
+      <img src="qrcode.png" alt="QR Code" class="qr-code" />
+    </div>
+
+    <div class="center">
+      <button onclick="downloadStruk()">Cetak Struk</button>
+      <button onclick="resetKasir()">Reset Manual</button>
+    </div>
+  </div>
+
+  <script>
+    let total = 0, qtyTotal = 0, orderNumber = 1;
+
+    function formatRupiah(angka) {
+      return 'Rp. ' + angka.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function formatCash(input) {
+      let angka = input.value.replace(/\D/g, '');
+      input.value = angka.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      hitungKembali();
+    }
+
+    function getCashValue() {
+      return parseInt(document.getElementById("cash").value.replace(/\./g, '')) || 0;
+    }
+
+    function setDateTime() {
+      const now = new Date();
+      const tanggal = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const jam = now.toLocaleTimeString('id-ID');
+      document.getElementById("datetime").innerText = `${tanggal}, ${jam}`;
+    }
+
+    function tambah() {
+      const [item, hargaStr] = document.getElementById("menu").value.split("|");
+      const harga = parseInt(hargaStr);
+      const qty = parseInt(document.getElementById("qty").value);
+
+      if (!qty || qty < 1) return alert("Jumlah minimal 1");
+
+      const subtotal = harga * qty;
+      const teks = `<div class="item"><span>${item} (${qty}x)</span><span>${formatRupiah(subtotal)}</span></div>`;
+
+      document.getElementById("pesanan").innerHTML += teks;
+      document.getElementById("items").innerHTML += teks;
+
+      total += subtotal;
+      qtyTotal += qty;
+
+      document.getElementById("ttotal").innerText = formatRupiah(total);
+      document.getElementById("tqty").innerText = qtyTotal;
+      document.getElementById("orderNum").innerText = orderNumber;
+      setDateTime();
+      hitungKembali();
+    }
+
+    function hitungKembali() {
+      const kembali = getCashValue() - total;
+      document.getElementById("kembali").innerText = formatRupiah(kembali >= 0 ? kembali : 0);
+    }
+
+    function resetKasir() {
+      total = 0; qtyTotal = 0;
+      document.getElementById("pesanan").innerHTML = '';
+      document.getElementById("items").innerHTML = '';
+      document.getElementById("ttotal").innerText = 'Rp. 0';
+      document.getElementById("tqty").innerText = 0;
+      document.getElementById("kembali").innerText = 'Rp. 0';
+      document.getElementById("cash").value = '';
+      document.getElementById("qty").value = 1;
+      document.getElementById("menu").selectedIndex = 0;
+    }
+
+    function downloadStruk() {
+      if (total === 0) return alert("Belum ada pesanan.");
+      if (getCashValue() < total) return alert("Pembayaran kurang.");
+
+      const struk = document.getElementById("struk");
+      html2canvas(struk).then(canvas => {
+        const link = document.createElement("a");
+        link.download = `struk_nasi_goreng_${Date.now()}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+        orderNumber++;
+        resetKasir();
+      });
+    }
+    html2canvas(struk).then(canvas => {
+  const link = document.createElement("a");
+  link.download = `struk_nasi_goreng_${Date.now()}.png`;
+  link.href = canvas.toDataURL();
+  link.click();
+  orderNumber++;
+  resetKasir();
+}).catch(err => {
+  console.error("Gagal membuat gambar dari struk:", err);
+});
+
+    setDateTime();
+  </script>
+</body>
+</html>
